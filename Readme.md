@@ -203,8 +203,21 @@ kubeadm token create --print-join-command
 
 # node worker kết nối vào Cluster
 kubeadm join 172.16.10.100:6443 --token 5ajhhs.atikwelbpr0 ...
-```
 
+kubectl get rs -o wide
+kubectl get hpa -o wide
+kubectl get po -o wide
+kubectl get nodes -o -wide
+
+kubectl get all -o wide
+
+kubectl apply -f <file>
+
+kubectl delete -f <file>
+
+k9s
+```
+- https://jamesdefabia.github.io/docs/user-guide/kubectl/kubectl/
 
 ## Error
 ```
@@ -235,3 +248,7 @@ kubeadm init
 
  kubectl get po -n kubernetes-dashboard
 ```
+
+## ReplicaSet
+
+## HPA - Horizontal Pod Autoscaler
