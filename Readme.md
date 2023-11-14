@@ -176,6 +176,7 @@ kubectl cluster-info
 
 # Các node (máy) trong cluster
 kubectl get nodes
+kubectl get node -o wide
 
 # Các pod (chứa container) đang chạy trong tất cả các namespace
 kubectl get pods -A
@@ -223,4 +224,14 @@ rm /etc/containerd/config.toml
 systemctl restart containerd
 systemctl enable containerd 
 kubeadm init
+```
+
+## Kubernetes Dashboard
+- https://github.com/kubernetes/dashboard/releases/tag/v2.0.0-beta6
+> curl https://github.com/kubernetes/dashboard/releases/tag/v2.0.0-beta6/aio/deploy/recommended.yaml > dashboard-v2.yaml
+
+```
+ kubectl apply -f .\dashboard-v2-beta6.yaml
+
+ kubectl get po -n kubernetes-dashboard
 ```
