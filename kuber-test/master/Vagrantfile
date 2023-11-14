@@ -1,0 +1,38 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Tạo máy ảo từ box centos/7, gán địa chỉ IP, đặt hostname, gán 2GB bộ nhớ, 2 cpus  
+Vagrant.configure("2") do |config|
+  config.vm.box = "generic/ubuntu1904"
+  config.vm.network "private_network", ip: "192.16.10.100"
+  config.vm.hostname = "master.huynguyen"
+
+  config.vm.provider "virtualbox" do |vb|
+     vb.name = "master.huynguyen"
+     vb.cpus = 2
+     vb.memory = "2048"
+  end
+
+  # Install Docker
+  config.vm.provision :docker
+
+  # Install Docker Compose
+  # First, install required plugin https://github.com/leighmcculloch/vagrant-docker-compose:
+  # vagrant plugin install vagrant-docker-compose
+  config.vm.provision :docker_compose
+
+  # Chạy các lệnh shell
+  config.vm.provision "shell", inline: <<-SHELL
+    # Đặt pass 123 có tài khoản root và cho phép SSH
+    echo "123" | passwd --stdin root
+    sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+    systemctl reload sshd
+# Ghi nội dung sau ra file /etc/hosts để truy cập được các máy theo HOSTNAME
+cat >>/etc/hosts<<EOF
+192.16.10.100 master.huynguyen
+192.16.10.101 worker1.huynguyen
+192.16.10.102 worker2.huynguyen
+EOF
+
+  SHELL
+end
