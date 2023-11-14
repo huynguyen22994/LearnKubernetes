@@ -1,29 +1,154 @@
-#
-using in to folder have Vagrantfile
+# Kubernetes (K8s)
+Kubernetes (còn gọi là k8s) là một hệ thống để chạy, quản lý, điều phối các ứng dụng được container hóa trên một cụm máy (1 hay nhiều) gọi là cluster. Với Kubernetes bạn có thể cấu hình để chạy các ứng dụng, dịch vụ sao cho phù hợp nhất khi chúng tương tác với nhau cũng như với bên ngoài. Bạn có thể điều chỉnh tăng giảm tài nguyên, bản chạy phục vụ cho dịch vụ (scale), bạn có thể cập nhật (update), thu hồi update khi có vấn đề ... Kubernetes là một công cụ mạnh mẽ, mềm dẻo, dễ mở rộng khi so sánh nó với công cụ tương tự là Docker Swarm!
+#### Khải niệm cơ bản:
+- Master Server: là máy chính của cluster, tại đây điều khiển cả cụm máy.
+- etct: là thành phần cơ bản cần thiết cho Kubernetes, nó lưu trữ các cấu hình chung cho cả cụm máy, etct chạy tại máy master. etct là một dự án nguồn mở nó cung cấp dịch vụ lưu dữ liệu theo cặp key/value
+- kube-apiserver: chạy tại máy master, cung cấp các API Restful để các client (như kubectl) tương tác với Kubernetes
+- kube-scheduler: chạy tại master, thành phần này giúp lựa chọn Node nào để chạy các ứng dụng căn cứ vào tài nguyên và các thành phần khác sao cho hệ thống ổn định.
+- kube-controller: chạy tại master, nó điều khiển trạng thái cluster, tương tác để thực hiện các tác vụ tạo, xóa, cập nhật ... các tài nguyên
+- Kubelet: dịch vụ vụ chạy trên tất cả các máy (Node), nó đảm đương giám sát chạy, dừng, duy trì các ứng dụng chạy trên node của nó.
+- Kube-proxy: cung cấp mạng proxy để các ứng dụng nhận được traffic từ ngoài mạng vào cluster.
+
+![](/images//1.png)
+
+## I. Setup Kubernestes on local with VirtualBox and Vagrant
+
+### Điều kiện
+- Cài đặt Virtual Box: https://www.virtualbox.org/wiki/Downloads
+- Cài đặt Vagrant để config tự động tạo máy chủ trên Virtual Box: https://developer.hashicorp.com/vagrant/install
+- Biết dùng Docker, lệnh Linux và Kuberctl cơ bản.
+- Cài đặt Docker Desktop và enable Kubernetes trên Docker Desktop.
+- Kiểm tra Kubernetes có trên máy bằng lệnh
+```
+# Lấy thông tin Cluster
+kubectl cluster-info
+
+# Các Node có trong Cluster
+kubectl get nodes
+```
+### Tạo Cluster Kubernetes với 2 nodes
+- Tạo một Cluster Kubernetes với 3 máy (3 VPS hoặc 3 Server) chạy Centos7.
+#### Thông tin các máy của hệ thống
+```
+1. Máy master: master.nth
+- Tên máy: master.nth
+- Thông tin hệ thống: HDH Centos7, Docker CE, Kubenestes
+- IP: 172.16.10.100
+- id: root - pass: 123
+- Vai trò: master 
+
+2. Máy worker: worker1.nth
+- Tên máy: worker1.nth
+- Thông tin hệ thống: HDH Centos7, Docker CE, Kubenestes
+- IP: 172.16.10.101
+- id: root - pass: 123
+- Vai trò: worker 
+
+3. Máy worker: worker2.nth
+- Tên máy: worker2.nth
+- Thông tin hệ thống: HDH Centos7, Docker CE, Kubenestes
+- IP: 172.16.10.102
+- id: root - pass: 123
+- Vai trò: worker 
+```
+- Sử dụng Vagrant để tạo hệ thống với 3 máy ảo trên Virtual Box.
+
+#### Step 1. Tạo máy master kubernetes
+- cd vào thư mục /kubernetes-centos7/master
+- Trong thư mục master có file vagrantfile chưa cấu hình cho máy ảo master.nth.
+- Mở virtual Box và chạy lệnh bên dưới tự động tạo máy ảo maste.nth
+```
+vagrant up
+```
+(*) Lưu ý: trong quá trình chạy `vagrant up` nếu gặp lỗi `ermission denied (publickey,gssapi-keyex,gssapi-with-mic)` thì chạy lệnh:
 ```
 vagrant ssh -- -vvv
 ```
+để fix lỗi sau đó chạy lại lệnh `vagrant up`
 
-if you catch "Permission denied (publickey,gssapi-keyex,gssapi-with-mic)"
+(*) Lưu ý: nhớ kiểm tra máy có thể chạy được lệnh bên dưới không
+```
+chmode +x install-docker-kube.sh
+```
+#### Step 2. Tạo các máy woker kubernetes
+- cd vào thư mục /kubernetes-centos7/woker1 và /kubernetes-centos7/woker2 để tạo 2 máy worker
+- Trong thư mục woker1 và worker2 có file vagrantfile chưa cấu hình cho máy ảo worker.
+- thực hiện lệnh:
+```
+vagrant up
+```
+để khởi tạo 2 máy worker.
 
-## Solution when catch Error "[preflight] Running pre-flight checks error execution phase preflight: [preflight] Some fatal errors occurred: [ERROR CRI]: container runtime is not running: output: time="2020-09-24T11:49:16Z" level=fatal msg="getting status of runtime failed: rpc error: code = Unimplemented desc = unknown service runtime.v1alpha2.RuntimeService", error: exit status 1"
-
-down version of kubernates
+#### Step 3. Khởi tạo Cluster trên máy master.nth
+- Trong lệnh khởi tạo cluster có tham số --pod-network-cidr để chọn cấu hình mạng của POD, do dự định dùng Addon calico nên chọn --pod-network-cidr=192.168.0.0/16
+- Gõ lệnh sau để khở tạo là nút master của Cluster
+```
+kubeadm init --apiserver-advertise-address=172.16.10.100 --pod-network-cidr=192.168.0.0/16
+```
+(*) Lưu ý: trường hợp khởi tạo nút master của cluster gặp lỗi như sau:
+```
+[preflight] Running pre-flight checks error execution phase preflight: [preflight] Some fatal errors occurred: [ERROR CRI]: container runtime is not running: output: time="2020-09-24T11:49:16Z" level=fatal msg="getting status of runtime failed: rpc error: code = Unimplemented desc = unknown service runtime.v1alpha2.RuntimeService
+```
+lỗi này xảy ra là vì version mới của kubernetes. version kubectl hơn 1.27.0 nên để fix lỗi này thì ssh vào máy master.nth và chạy lệnh 
 ```
 sudo yum downgrade kubeadm-1.16.9 kubernetes-cni-0.7.5 kubelet-1.16.9 kubectl-1.16.9
 ```
+để down version kubernates xuống sẽ fix được lỗi
 
+- Sau khi lệnh chạy xong, chạy tiếp cụm lệnh nó yêu cầu chạy sau khi khởi tạo- để chép file cấu hình đảm bảo trình kubectl trên máy này kết nối Cluster
+```
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```
+- Tiếp đó, nó yêu cầu cài đặt một Plugin mạng trong các Plugin tại addon, ở đây đã chọn calico, nên chạy lệnh sau để cài nó
 ```
 kubectl apply -f https://docs.projectcalico.org/archive/v3.12/manifests/calico.yaml
 
 ```
+- Gõ vài lệnh sau để kiểm tra
+```
+# Thông tin cluster
+kubectl cluster-info
+# Các node trong cluster
+kubectl get nodes
+# Các pod đang chạy trong tất cả các namespace
+kubectl get pods -A
+```
 
+-> Vậy là đã có Cluster với 1 node!
+
+#### Cấu hình kubectl máy trạm truy cập đến các Cluster
+- Chương trình client kubectl là công cụ dòng lệnh kết nối và tương tác với các Cluster Kubernetes, thường khi cài đặt Kubernetes mọi người cũng cài luôn kubectl như phần trên trên, ngay cả máy cài Docker Desktop cũng đã có kubectl. Tất nhiên, bạn có cài đặt kubectl trên một máy không Docker, không Kubernetes với mục đích chỉ dùng nó kết nối đến hệ thống Cluster từ xa. Nếu muốn cài ở máy độc lập như vậy xem tại: https://kubernetes.io/docs/tasks/tools/
+
+- Trở lại máy Host (máy local), để xem nội dung cấu hình kubectl gõ lệnh:
 ```
-rm /etc/containerd/config.toml
-systemctl restart containerd
-systemctl enable containerd 
-kubeadm init
+kubectl config view
 ```
+- Tại máy master ở trên, có file cấu hình cho tại /root/.kube/config, ta copy file cấu hình này ra lưu thành file config-mycluster (không ghi đè vào config hiện tại của máy HOST)
+```
+scp root@172.16.10.100:/etc/kubernetes/admin.conf ~/.kube/config-mycluster
+```
+- Vậy trên máy của tôi đang có 2 file cấu hình:
+```
+~/.kube/config-mycluster cấu hình kết nối đến Cluster mới tạo ở trên
+
+~/.kube/config cấu hình kết nối đến Cluster cục bộ của bản Kubernetes có sẵn của Docker
+```
+- Giờ bạn sẽ thực hiện kết hợp 2 file: config và config-mycluster thành 1 và lưu trở lại config.
+```
+export KUBECONFIG=~/.kube/config:~/.kube/config-mycluster
+kubectl config view --flatten > ~/.kube/config_temp
+mv ~/.kube/config_temp ~/.kube/config
+```
+- Như vậy trong file cấu hình đã có các ngữ cảnh khác nhau để sử dụng, đóng terminal và mở lại rồi gõ lệnh, có các ngữ cảnh nào
+-  nếu muốn chuyển làm việc sang context có tên kubernetes-admin@kubernetes (nối với cluster mới tạo ở trên) thì gõ lệnh
+```
+kubectl config use-context kubernetes-admin@kubernetes
+```
+
+
+
 
 ## Error
 ```
@@ -36,4 +161,11 @@ fix
 
 ```
 ssh-keygen -R 192.168.3.10
+```
+
+```
+rm /etc/containerd/config.toml
+systemctl restart containerd
+systemctl enable containerd 
+kubeadm init
 ```
